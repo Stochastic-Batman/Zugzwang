@@ -34,6 +34,7 @@ The engine outputs moves in algebraic notation using a two-column format (White 
 ├── Makefile                      # Build configuration
 ├── README.md                     # This file
 ├── LICENSE                       # Project license
+├── .gitattributes                # This is not a TeX repository
 ├── .gitignore                    # Git ignore patterns
 ├── Chess_Engine_Tutorial.tex     # LaTeX tutorial document (theory)
 └── Chess_Engine_Tutorial.pdf     # Compiled PDF tutorial
