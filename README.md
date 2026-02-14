@@ -22,11 +22,12 @@ The engine outputs moves in algebraic notation using a two-column format (White 
 ├── src/                          # Source code directory
 │   ├── types.h                   # Core type definitions and constants
 │   ├── bitboard.h/.c             # Bitboard operations and attack generation
-│   ├── board.h/.c                # Board state management
+│   ├── board.h/.c                # Board state management with undo support
 │   ├── moves.h/.c                # Move encoding and utilities
-│   ├── movegen.h/.c              # Pseudo-legal and legal move generation
-│   ├── evaluation.h/.c           # Position evaluation functions
-│   ├── minmax.h/.c               # Alpha-beta search implementation
+│   ├── movegen.h/.c              # Move generation with ordering
+│   ├── evaluation.h/.c           # Position evaluation with tapered eval
+│   ├── search.h/.c               # Negamax search with transposition table
+│   ├── transposition.h/.c        # Transposition table implementation
 │   ├── notation.h/.c             # Algebraic notation parsing and printing
 │   ├── zobrist.h/.c              # Zobrist hashing implementation
 │   └── main.c                    # Entry point and game loop
@@ -56,6 +57,7 @@ Topics covered include:
 6. Principal variation
 7. Piece-square tables
 8. Move ordering optimizations
+9. The optimized search framework (negamax with transposition tables)
 
 ## Building the Engine
 
