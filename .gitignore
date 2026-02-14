@@ -53,3 +53,9 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# project specific
+*.aux
+*.log
+*.out
+*.synctex.gz

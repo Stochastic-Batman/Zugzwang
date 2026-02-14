@@ -1,0 +1,1149 @@
+\documentclass{article}
+
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{longtable}
+\usepackage{tabularx}
+
+\title{Chess Engine Tutorial}
+\author{Stochastic Batman}
+\date{February 14, 2026}
+
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\s}{\mathcal{S}}
+\newcommand{\argmax}{arg\,max}
+\newcommand{\argmin}{arg\,min}
+
+\algrenewcommand\algorithmicrequire{\textbf{Input:}}
+\algrenewcommand\algorithmicensure{\textbf{Output:}}
+
+\begin{document}
+	\maketitle
+	
+	\begin{abstract}
+		This tutorial provides a comprehensive guide to implementing a chess engine using modern algorithmic techniques. I cover fundamental data structures (bitboards and magic bitboards), search algorithms (minimax with alpha-beta pruning), move generation strategies (pseudo-legal with legal filtering), hashing techniques (Zobrist hashing), principal variation tracking, evaluation heuristics (piece-square tables), and move ordering optimizations. The material is suitable for programmers with knowledge of C and chess rules who wish to implement a functional engine from scratch. These notes synthesize information from \textit{Chess Programming Wiki} \cite{cpw}, Knuth and Moore's seminal work on alpha-beta \cite{knuth1975}, and practical implementation guides \cite{mediocrechess}. For the implementation of this chess engine in C, check out \cite{repo}.
+	\end{abstract}
+	
+	\section{Chess (Algebraic) Notation}
+	
+	\subsection*{Purpose}
+	Chess notation is a standardized system for recording and describing chess moves. Understanding this notation is essential for implementing a chess engine that can communicate moves in a human-readable format. Throughout this document, all positions will be shown from White's perspective.
+	
+	\subsection*{Algebraic Notation}
+	
+	Algebraic notation is the most common system. Each square on the chessboard is identified by a coordinate system:
+	
+	\begin{itemize}
+		\item \textbf{Files}: Columns labeled $a$ through $h$ from left to right.
+		\item \textbf{Ranks}: Rows numbered $1$ through $8$ from bottom to top.
+		\item \textbf{Squares}: Identified by concatenating file and rank, e.g., $e4$, $a1$, $h8$.
+	\end{itemize}
+	
+	\subsection*{Piece Designation}
+	
+	Each piece type has a letter designation:
+	
+	\begin{itemize}
+		\item \textbf{K} $\gets$ King
+		\item \textbf{Q} $\gets$ Queen
+		\item \textbf{R} $\gets$ Rook
+		\item \textbf{B} $\gets$ Bishop
+		\item \textbf{N} $\gets$ Knight (K is reserved for King)
+		\item \textbf{(no letter)} $\gets$ Pawn
+	\end{itemize}
+	
+	\subsection*{Move Notation Rules}
+	
+	A move is recorded using the following conventions, where $\circ$ denotes concatenation:
+	
+	\begin{enumerate}
+		\item \textbf{Simple moves}: Piece letter $\circ$ destination square
+		\begin{itemize}
+			\item \textit{Example:} $Nf3$ means "Knight moves to $f3$".
+			\item \textit{Example:} $e4$ means "pawn moves to $e4$".
+		\end{itemize}
+		
+		\item \textbf{Captures}: Piece letter $\circ \, x \, \circ$ destination square
+		\begin{itemize}
+			\item \textit{Example:} $Bxc4$ means "Bishop captures on $c4$".
+			\item \textit{Example:} $exd5$ means "pawn on $e$-file captures on $d5$".
+			\item \textit{Note}: The $x$ symbol may be omitted in some notations, but definitely not in \cite{repo}.
+		\end{itemize}
+		
+		\item \textbf{Castling}:
+		\begin{itemize}
+			\item O-O: Kingside castling (king and $h$-rook).
+			\item O-O-O: Queenside castling (king and $a$-rook).
+		\end{itemize}
+		
+		\item \textbf{Pawn promotion}: Destination square $\circ = \circ$ promoted piece
+		\begin{itemize}
+			\item \textit{Example:} $e8=Q$ means "pawn moves to $e8$ and promotes to Queen".
+			\item \textit{Example:} $axb8=N$ means "pawn captures on $b8$ and promotes to Knight".
+		\end{itemize}
+		
+		\item \textbf{En passant}: Recorded as normal pawn capture
+		\begin{itemize}
+			\item \textit{Example:} $exd6 \,\, e.p.$ (the notation $e.p.$ may be appended for clarity).
+		\end{itemize}
+		
+		\item \textbf{Disambiguation}: When multiple pieces of the same type can move to the same square
+		\begin{itemize}
+			\item Add the file of origin: $Nbd7$ (Knight from $b$-file to $d7$).
+			\item Add the rank of origin: $R1a3$ (Rook from rank $1$ to $a3$).
+			\item Add both if necessary: $Qh4e1$ (Queen from $h4$ to $e1$).
+		\end{itemize}
+		
+		\item \textbf{Check and checkmate annotations}:
+		\begin{itemize}
+			\item $+$: Check (king is under attack).
+			\item \textit{Example:} $Nf7+$ means "Knight to $f7$, check".
+			\item $\#$: Checkmate (king is in check with no legal moves).
+			\item \textit{Example:} $Qh5\#$ means "Queen to $h5$, checkmate".
+		\end{itemize}
+	\end{enumerate}
+	
+	\subsection*{Two-Column Game Recording}
+	
+	Complete games are typically recorded with move numbers in a two-column format, with White's moves on the left and Black's moves on the right:
+	
+	\begin{center}
+		\begin{tabular}{cll}
+			\toprule
+			\textbf{Move} & \textbf{White} & \textbf{Black} \\
+			\midrule
+			1 & e4 & e5 \\
+			2 & Nf3 & Nc6 \\
+			3 & Bb5 & a6 \\
+			4 & Ba4 & Nf6 \\
+			5 & O-O & Be7 \\
+			\bottomrule
+		\end{tabular}
+	\end{center}
+	
+	This format clearly shows the sequence of play and is the standard used in chess databases and engine output.
+	
+	\section{Bitboards}
+	
+	\subsection*{Purpose}
+	
+	Bitboards are a highly efficient data structure for representing chess positions. Instead of using an 8$\times$8 array to store the board state, bitboards use 64-bit integers where each bit represents a square on the chessboard. This representation enables extremely fast bitwise operations for move generation, attack detection, and position evaluation. The performance gain comes from the ability to operate on multiple squares simultaneously using single CPU instructions.
+	
+	\subsection*{Formalism}
+	
+	Let $B \in \{0,1\}^{64}$ be a bitboard, represented as a 64-bit unsigned integer. Each bit position $i \in [0, 63]$ corresponds to a square on the chessboard, where:
+	
+	\begin{equation}
+		i = 8r + f
+	\end{equation}
+	
+	where $r \in [0,7]$ is the rank (row) and $f \in [0,7]$ is the file (column). The standard Little-Endian Rank-File (LERF) mapping is bit $0 \leftrightarrow a1$, bit $7 \leftrightarrow h1$, bit $56 \leftrightarrow a8$ and bit $63 \leftrightarrow h8$.
+	
+	\subsection*{Basic Bitwise Operations}
+	
+	\begin{enumerate}
+		\item \textbf{Set bit at square $s$}:
+		\begin{equation}
+			B' = B \lor 2^s
+		\end{equation}
+		
+		\item \textbf{Clear bit at square $s$}:
+		\begin{equation}
+			B' = B \land \neg(2^s)
+		\end{equation}
+		
+		\item \textbf{Toggle bit at square $s$}:
+		\begin{equation}
+			B' = B \oplus 2^s
+		\end{equation}
+		
+		\item \textbf{Test bit at square $s$}:
+		\begin{equation}
+			\text{occupied}(s) = \begin{cases}
+				\text{true} & \text{if } (B \land 2^s) \neq 0 \\
+				\text{false} & \text{otherwise}
+			\end{cases}
+		\end{equation}
+		
+		\item \textbf{Population count} (count number of set bits):
+		\begin{equation}
+			|B| = \sum_{i=0}^{63} \left( \left\lfloor \frac{B}{2^i} \right\rfloor \bmod 2 \right)
+		\end{equation}
+		Modern CPUs implement this as a single instruction: \texttt{POPCNT}.
+		
+		\item \textbf{Least significant bit} (find lowest set bit):
+		\begin{equation}
+			\text{LSB}(B) = B \land (\neg B + 1)
+		\end{equation}
+		This isolates the rightmost 1-bit using two's complement arithmetic.
+		
+		\item \textbf{Remove least significant bit}:
+		\begin{equation}
+			B' = B \land (B - 1)
+		\end{equation}
+		This clears the rightmost 1-bit, useful for iterating through set bits.
+		
+		\item \textbf{Bit scan forward} (index of LSB):
+		\begin{equation}
+			\text{BSF}(B) = |B \land (B-1)|
+		\end{equation}
+		Returns the index of the least significant set bit.
+	\end{enumerate}
+	
+	\subsection*{Complete Board Representation}
+	
+	A complete chess position requires 12 piece bitboards (6 piece types $\times$ 2 colors):
+	\begin{align}
+		&\text{Let } \mathcal{P} = \{\stackrel{\text{(pawn)}}{P}, N, B, R, Q, K\} \text{ be the set of piece types} \\
+		&\text{Let } \mathcal{C} = \{w, b\} \text{ be the set of colors (white, black)}
+	\end{align}
+	
+	For each piece type $p \in \mathcal{P}$ and color $c \in \mathcal{C}$, we maintain:
+	
+	\begin{equation}
+		B_{p,c} \in \{0,1\}^{64}
+	\end{equation}
+	
+	Additionally, we maintain composite bitboards for efficiency:
+	
+	\begin{align}
+		\text{Occupied}_w &:= \bigvee_{p \in \mathcal{P}} B_{p,w} \\
+		\text{Occupied}_b &:= \bigvee_{p \in \mathcal{P}} B_{p,b} \\
+		\text{O} &:= \text{Occupied}_w \lor \text{Occupied}_b
+	\end{align}
+	
+	where $\bigvee$ denotes bitwise OR over all elements.
+	
+	\subsection*{Shift Operations for Piece Attacks}
+	
+	Directional shifts allow the engine to calculate piece movement across the entire board simultaneously using bitwise arithmetic. Because the board is 8 squares wide, vertical movement corresponds to a shift of 8 bits, while horizontal movement corresponds to a shift of 1 bit.
+	
+	\subsubsection*{The Wrapping Problem}
+	
+	Standard bit shifts do not respect the boundaries of an $8 \times 8$ grid. Without safety masks, bits on the edge of the board would \textit{wrap} to the opposite side:
+	\begin{itemize}
+		\item \textbf{Eastward wrapping}: A bit on the $h$-file, when shifted left by 1, would incorrectly appear on the $a$-file of the next rank.
+		\item \textbf{Westward wrapping}: A bit on the $a$-file, when shifted right by 1, would appear on the $h$-file of the previous rank.
+	\end{itemize}
+	
+	To prevent this, we use \textbf{File Masks} (All squares on the $a$ and $h$-files), usually represented in the hexadecimal format, to prune invalid moves that would otherwise cross the board's edge:
+	\begin{align}
+		\text{FileA} &:= \texttt{0x0101010101010101} \\
+		\text{FileH} &:= \texttt{0x8080808080808080} \\
+		\text{NorthOne}(B) &:= B \ll 8 \\
+		\text{SouthOne}(B) &:= B \gg 8 \\
+		\text{EastOne}(B) &:= (B \ll 1) \land \neg \text{FileA} \\
+		\text{WestOne}(B) &:= (B \gg 1) \land \neg \text{FileH} \\
+		\text{NorthEast}(B) &:= (B \ll 9) \land \neg \text{FileA} \\
+		\text{NorthWest}(B) &:= (B \ll 7) \land \neg \text{FileH} \\
+		\text{SouthEast}(B) &:= (B \gg 7) \land \neg \text{FileA} \\
+		\text{SouthWest}(B) &:= (B \gg 9) \land \neg \text{FileH}
+	\end{align}
+	
+	\section{Magic Bitboards}
+	
+	\subsection*{Purpose}
+	
+	Magic bitboards solve the computational challenge of generating sliding piece attacks (rooks, bishops, queens) efficiently. The naive approach of ray-casting is too slow for deep search. Magic bitboards use perfect hashing \cite{perfecthashing} to pre-compute all possible attack patterns and retrieve them in $O(1)$ time using a single multiplication and shift operation.
+	
+	\subsection*{The Sliding Piece Problem}
+	
+	Define the set of all square indices $\s = \{0, 1, \dots, 63\}$. For a sliding piece on square $s \in \s$, the attack pattern depends on the occupancy of squares along its movement rays. Let $\mathcal{R}_s$ be the set of movement rays (orthogonal for rooks, diagonal for bishops). For each ray $r \in \mathcal{R}_s$, let the squares on that ray be ordered by their distance from $s$ as $\{t_1, t_2, \dots, t_k\}$. The challenge is to compute (in constant time):
+	\begin{equation}
+		A(s, O) := \bigcup_{r \in \mathcal{R}_s} \{ t_i \in r \mid \forall j < i, t_j \notin O \}
+	\end{equation}
+	
+	where:
+	\begin{itemize}
+		\item $t_j \notin O$ denotes that square $t_j$ is empty (\texttt{B[$t_j$] = 0}).
+		\item The condition $\forall j < i, t_j \notin O$ ensures that the ray continues until it hits the first occupied square (the blocker), which is included in the attack set, but squares \textit{beyond} the blocker are excluded.
+	\end{itemize}
+	
+	The key insight: only a subset of squares (the \textit{relevant occupancy}) actually affects the attack pattern.
+	
+	\subsection*{Relevant Occupancy Mask}
+	
+	For any square $s \in \s$ with rank $r_s = \lfloor s/8 \rfloor$ and file $f_s = s \bmod 8$, we define the following foundational bitboard masks:
+	
+	\begin{itemize}
+		\item $ \text{RankMask}(s) := \sum \{ 2^i \mid i \in \s, \lfloor i/8 \rfloor = r_s \} $
+		\item $ \text{FileMask}(s) := \sum \{ 2^i \mid i \in \s, i \bmod 8 = f_s \} $
+		\item \text{DiagonalMask}($s$): The set of squares where the difference between rank and file is constant (parallel to the $a1-h8$ diagonal). $$ \text{DiagonalMask}(s) := \sum \{ 2^i \mid i \in \s, (\lfloor i/8 \rfloor - (i \bmod 8)) = (r_s - f_s) \} $$
+		\item \text{AntiDiagonalMask}($s$): Same as above, but parallel to the $h1-a8$ diagonal. $$ \text{AntiDiagonalMask}(s) := \sum \{ 2^i \mid i \in \s, (\lfloor i/8 \rfloor + (i \bmod 8)) = (r_s + f_s) \} $$
+		\item $ \text{Edges} := \text{RankMask}(0) \lor \text{RankMask}(56) \lor \text{FileMask}(0) \lor \text{FileMask}(7) $
+	\end{itemize}
+	
+	For a rook on square $s \in \s$, the relevant occupancy mask $M_R(s)$ includes all squares on its rank and file, \textit{excluding} the board edges relative to the piece's rays. This is because a piece on the edge cannot block the sliding piece from reaching that edge, but it does not matter if there is a piece "behind" the edge square. $$ M_R(s) := (\text{RankMask}(s) \lor \text{FileMask}(s)) \land \neg(\text{Edges} \lor 2^s) $$ For a bishop: $$ M_B(s) := (\text{DiagonalMask}(s) \lor \text{AntiDiagonalMask}(s)) \land \neg(\text{Edges} \lor 2^s) $$
+	and for a queen: $$M_Q (s) := M_R(s) \cup M_B(s)$$
+	
+	\subsection*{Perfect Hashing via Magic Multiplication}
+	
+	The magic bitboards technique uses a multiplicative hash function \cite{multiplicativehashing}. For each square $s \in \s$, we find a magic number $\mu_s \in \mathbb{Z}_{2^{64}}$ such that:
+	
+	\begin{equation}
+		h(s, O) = \frac{(O \land M(s)) \times \mu_s}{2^{64-n(s)}}
+	\end{equation}
+	
+	where:
+	\begin{itemize}
+		\item $M(s)$ is the relevant occupancy mask for square $s$ (drop subscripts $R, B, Q$ for simplicity).
+		\item $n(s) = |M(s)|$ is the number of relevant occupancy bits.
+		\item $h(s, O) \in [0, 2^{n(s)}-1]$ is the hash index.
+	\end{itemize}
+	
+	\subsection*{Attack Lookup}
+	
+	The complete lookup becomes:
+	
+	\begin{equation}
+		A(s, O) = \text{AttackTable}_s\left[\frac{(O \land M(s)) \times \mu_s}{2^{64-n(s)}}\right]
+	\end{equation}
+	
+	where $\text{AttackTable}_s$ is a pre-computed array of size $2^{n(s)}$ containing all possible attack patterns for square $s$ given different occupancies.
+	
+	\subsection*{Finding Magic Numbers}
+	
+	Magic numbers are found through brute-force trial-and-error search:
+	
+	\begin{algorithm}
+		\caption{Finding Magic Numbers for Square $s$}
+		\begin{algorithmic}[1]
+			\Require Square $s \in \s$, Relevant occupancy mask $M(s)$, Number of bits $n(s)|$
+			\Ensure Valid magic number $\mu_s$ and populated attack table $\text{AttackTable}_s$
+			\State Initialize $\text{AttackTable}_s$ as empty array of size $2^{n(s)}$
+			\State $\text{found} \gets \texttt{false}$
+			\While{not $\text{found}$}
+			\State $\mu \gets$ random sparse 64-bit integer \Comment{Few set bits}
+			\State $\text{collisionFree} \gets \texttt{true}$
+			\State Clear $\text{AttackTable}_s$
+			\For{each occupancy pattern $O \in \mathcal{P}(M(s))$} \Comment{$2^{n(s)}$ patterns}
+			\State $\text{attacks} \gets A(s, O)$ \Comment{Compute actual attacks}
+			\State $\text{index} \gets \lfloor (O \land M(s)) \times \mu / 2^{64-n(s)} \rfloor$
+			\If{$\text{AttackTable}_s[\text{index}]$ is empty}
+			\State $\text{AttackTable}_s[\text{index}] \gets \text{attacks}$
+			\ElsIf{$\text{AttackTable}_s[\text{index}] \neq \text{attacks}$}
+			\State $\text{collisionFree} \gets \texttt{false}$
+			\State \textbf{break} \Comment{Collision detected, try next $\mu$}
+			\EndIf
+			\EndFor
+			\If{$\text{collisionFree}$}
+			\State $\mu_s \gets \mu$
+			\State $\text{found} \gets \texttt{true}$
+			\EndIf
+			\EndWhile
+			\State \Return $\mu_s$, $\text{AttackTable}_s$
+		\end{algorithmic}
+	\end{algorithm}
+	
+	Candidates $\mu$ are typically chosen as random 64-bit integers with few set bits (sparse), as these tend to produce better hash distributions.
+	
+	\subsection*{Space-Time Tradeoff}
+	
+	For rooks:
+	\begin{itemize}
+		\item Corner squares: $n(s) = 12$ bits $\Rightarrow 4096$ entries
+		\item Edge squares: typically $n(s) = 10-11$ bits
+		\item Center squares: typically $n(s) = 10-12$ bits
+	\end{itemize}
+	
+	For bishops:
+	\begin{itemize}
+		\item Corners: $n(s) = 5-7$ bits $\Rightarrow 32-128$ entries
+		\item Center: $n(s) = 9$ bits $\Rightarrow 512$ entries
+	\end{itemize}
+	
+	Total memory for pre-computed tables: approximately 800KB for both rooks and bishops.
+	
+	\section{Minimax Algorithm with Alpha-Beta Pruning}
+	
+	\subsection*{Purpose}
+	
+	Minimax \cite{knuth1975} is the foundational search algorithm for two-player zero-sum games like chess. It explores the game tree to find the optimal move by assuming both players play perfectly. The algorithm alternates between maximizing and minimizing players, evaluating positions at leaf nodes. Alpha-beta pruning is a critical optimization that eliminates branches that cannot influence the final decision, often reducing the effective branching factor from $b$ to $\sqrt{b}$.
+	
+	\subsection*{Game Tree Formalism}
+	
+	Define a game tree $\mathcal{T} = (V, E)$ where:
+	\begin{itemize}
+		\item $V$ is the set of positions (nodes)
+		\item $E \subseteq V \times V$ is the set of moves (edges)
+		\item Root position $p_0 \in V$ is the current position
+		\item Leaf positions $L \subseteq V$ are terminal or depth-limited positions
+	\end{itemize}
+	
+	\subsection*{Minimax Value Function}
+	
+	Let $V(p, d)$ be the minimax value of position $p$ at remaining depth $d$. Define recursively:
+	
+	\begin{equation}
+		V(p, d) = \begin{cases}
+			\text{eval}(p) & \text{if } d = 0 \text{ or } p \in L \\
+			\displaystyle\max_{m \in M(p)} V(m(p), d-1) & \text{if } p \text{ is MAX node} \\
+			\displaystyle\min_{m \in M(p)} V(m(p), d-1) & \text{if } p \text{ is MIN node}
+		\end{cases}
+	\end{equation}
+	
+	where:
+	\begin{itemize}
+		\item $M(p)$ is the set of legal moves in position $p$
+		\item $m(p)$ denotes the position after applying move $m$ to position $p$
+		\item $\text{eval}(p) \in \mathbb{R}$ is the static evaluation function
+		\item MAX nodes correspond to the side trying to maximize the score
+		\item MIN nodes correspond to the side trying to minimize the score
+	\end{itemize}
+	
+	\subsection*{Alpha-Beta Pruning}
+	
+	Alpha-beta maintains two bounds during search:
+	
+	\begin{itemize}
+		\item $\alpha$ $\gets$ Best value the maximizer can guarantee so far (lower bound)
+		\item $\beta$ $\gets$ Best value the minimizer can guarantee so far (upper bound)
+	\end{itemize}
+	
+	Initially: 
+	\begin{itemize}
+		\item $\alpha = -\infty$
+		\item $\beta = +\infty$
+	\end{itemize}
+	
+	The search window $[\alpha, \beta]$ narrows as the search progresses. When $\alpha \geq \beta$, the current branch can be pruned.
+	
+	\subsection*{Alpha-Beta Algorithm}
+	
+	The enhanced minimax with alpha-beta pruning:
+	
+	\begin{equation}
+		V_{AB}(p, d, \alpha, \beta) = \begin{cases}
+			\text{eval}(p) & \text{if } d = 0 \text{ or } p \in L \\
+			\text{MaxValue}(p, d, \alpha, \beta) & \text{if MAX node} \\
+			\text{MinValue}(p, d, \alpha, \beta) & \text{if MIN node}
+		\end{cases}
+	\end{equation}
+	
+	For the maximizing player:
+	
+	\begin{algorithm}[H]
+		\caption{MaxValue (Maximizing Player in Alpha-Beta)}
+		\begin{algorithmic}[1]
+			\Require Position $p$, depth $d$, bounds $\alpha$, $\beta$
+			\Ensure Best value $v$ for maximizing player
+			\State $v \gets -\infty$
+			\For{each move $m \in M(p)$}
+			\State $v \gets \max(v, V_{AB}(m(p), d-1, \alpha, \beta))$
+			\State $\alpha \gets \max(\alpha, v)$
+			\If{$\beta \leq \alpha$}
+			\State \textbf{break} \Comment{$\beta$-cutoff: position too good, opponent won't allow it}
+			\EndIf
+			\EndFor
+			\State \Return $v$
+		\end{algorithmic}
+	\end{algorithm}
+	
+	
+	For the minimizing player:
+	
+	\begin{algorithm}[H]
+		\caption{MinValue (Minimizing Player in Alpha-Beta)}
+		\begin{algorithmic}[1]
+			\Require Position $p$, depth $d$, bounds $\alpha$, $\beta$
+			\Ensure Best value $v$ for minimizing player
+			\State $v \gets +\infty$
+			\For{each move $m \in M(p)$}
+			\State $v \gets \min(v, V_{AB}(m(p), d-1, \alpha, \beta))$
+			\State $\beta \gets \min(\beta, v)$
+			\If{$\beta \leq \alpha$}
+			\State \textbf{break} \Comment{$\alpha$-cutoff: position too bad, we have better alternative}
+			\EndIf
+			\EndFor
+			\State \Return $v$
+		\end{algorithmic}
+	\end{algorithm}
+	
+	\subsection*{Pruning Conditions}
+	
+	\begin{itemize}
+		\item \textbf{Beta Cutoff} (at MAX node): When $v \geq \beta$, the current position is too good for the maximizer; the minimizer will avoid this branch by choosing a different move earlier.
+		\item \textbf{Alpha Cutoff} (at MIN node): When $v \leq \alpha$, the current position is too good for the minimizer; the maximizer will avoid this branch.
+	\end{itemize}
+	
+	Formally, a branch rooted at position $p$ can be pruned when:
+	
+	\begin{equation}
+		\beta \leq \alpha \implies \text{prune}(p)
+	\end{equation}
+	
+	\subsection*{Correctness and Efficiency}
+	
+	\textbf{Correctness}: Alpha-beta returns the same value as minimax:
+	
+	\begin{equation}
+		V_{AB}(p, d, -\infty, +\infty) = V(p, d) \quad \forall p, d
+	\end{equation}
+	
+	\textbf{Best-case efficiency}: With perfect move ordering (best move searched first), alpha-beta examines:
+	
+	\begin{equation}
+		N_{best} = O(b^{d/2})
+	\end{equation}
+	
+	nodes instead of minimax's $O(b^d)$, effectively doubling the search depth.
+	
+	\textbf{Worst-case efficiency}: With worst move ordering (best move searched last):
+	
+	\begin{equation}
+		N_{worst} = O(b^d)
+	\end{equation}
+	
+	This highlights the critical importance of move ordering.
+	
+	\section{Move Generation}
+	
+	\subsection*{Purpose}
+	
+	Move generation is the process of enumerating all legal moves in a given chess position. A two-stage approach is standard: first generate \textit{pseudo-legal} moves (moves that obey piece movement rules but may leave the king in check), then filter to obtain \textit{legal} moves (those that don't leave one's own king in check). This separation improves performance by deferring expensive legality checks.
+	
+	\subsection*{Pseudo-Legal Move Generation}
+	
+	For each piece type $\tau \in \{\text{Pawn, Knight, Bishop, Rook, Queen, King}\}$ and each square $s$ occupied by a piece of type $\tau$ belonging to the side to move, generate candidate moves:
+	
+	\begin{equation}
+		M_{\text{pseudo}}(s, \tau, c) = \{(s, t, f) \mid t \in A_\tau(s, O) \land \text{valid}(s, t, c)\}
+	\end{equation}
+	
+	where:
+	\begin{itemize}
+		\item $A_\tau(s, O)$ is the attack bitboard for piece type $\tau$ at square $s$ given occupancy $O$
+		\item $c \in \{w, b\}$ is the color of the moving side
+		\item $f$ encodes move flags (capture, en passant, castling, promotion)
+		\item $\text{valid}(s, t, c)$ checks that square $t$ is not occupied by a friendly piece
+	\end{itemize}
+	
+	\subsection*{Attack Generation by Piece Type}
+	
+	\begin{enumerate}
+		\item \textbf{Pawn attacks} (color-dependent):
+		
+		For white pawns on square $s$:
+		\begin{align}
+			A_P^w(s) = &\text{NorthWest}(2^s) \lor \text{NorthEast}(2^s) \quad \text{(captures)} \\
+			&\lor \text{NorthOne}(2^s) \land \neg O \quad \text{(single push)} \\
+			&\lor (\text{NorthOne}(\text{NorthOne}(2^s)) \land \neg O) \quad \text{(double push if rank 2)}
+		\end{align}
+		
+		Plus en passant captures and promotion flags when reaching rank 8.
+		
+		\item \textbf{Knight attacks} (pre-computed table):
+		\begin{equation}
+			A_N(s) = \text{KnightTable}[s]
+		\end{equation}
+		
+		where $\text{KnightTable}[s]$ contains all squares a knight can reach from $s$ (up to 8 squares).
+		
+		\item \textbf{Bishop attacks} (diagonal sliding):
+		\begin{equation}
+			A_B(s, O) = \text{DiagAttacks}(s, O) \lor \text{AntiDiagAttacks}(s, O)
+		\end{equation}
+		
+		Computed using magic bitboards (Section 3) or classical ray-casting.
+		
+		\item \textbf{Rook attacks} (orthogonal sliding):
+		\begin{equation}
+			A_R(s, O) = \text{RankAttacks}(s, O) \lor \text{FileAttacks}(s, O)
+		\end{equation}
+		
+		\item \textbf{Queen attacks} (combined):
+		\begin{equation}
+			A_Q(s, O) = A_B(s, O) \lor A_R(s, O)
+		\end{equation}
+		
+		\item \textbf{King attacks} (pre-computed table):
+		\begin{equation}
+			A_K(s) = \text{KingTable}[s]
+		\end{equation}
+		
+		Plus special handling for castling moves (requires checking castling rights, empty squares, and non-attacked squares).
+	\end{enumerate}
+	
+	\subsection*{Castling Legality}
+	
+	Castling move $(e1, g1)$ for White kingside is pseudo-legal if and only if:
+	
+	\begin{align}
+		&\text{CastlingRights}_w[\text{kingside}] = \text{true} \quad \land \\
+		&(O \land \{f1, g1\}) = \emptyset \quad \land \\
+		&\neg\text{isAttacked}(e1, b) \quad \land \\
+		&\neg\text{isAttacked}(f1, b) \quad \land \\
+		&\neg\text{isAttacked}(g1, b)
+	\end{align}
+	
+	Similar conditions apply for queenside and Black castling.
+	
+	\subsection*{Legal Move Filtering}
+	
+	A pseudo-legal move $m$ is legal if and only if executing $m$ does not leave the moving side's king in check:
+	
+	\begin{equation}
+		\text{legal}(m, p) \iff \neg\text{inCheck}(p \circ m, \text{sideToMove}(p))
+	\end{equation}
+	
+	where:
+	
+	\begin{equation}
+		\text{inCheck}(p, c) \iff \exists s \in \text{KingSquare}(p, c): \text{isAttacked}(p, s, \neg c)
+	\end{equation}
+	
+	The $\text{isAttacked}(p, s, c)$ function returns true if square $s$ is attacked by color $c$ in position $p$:
+	
+	\begin{equation}
+		\text{isAttacked}(p, s, c) \iff \bigvee_{\tau \in \mathcal{P}} (A_\tau(s, O) \land B_{\tau, c}) \neq \emptyset
+	\end{equation}
+	
+	This checks whether any piece of color $c$ attacks square $s$.
+	
+	\subsection*{Complete Legal Move Set}
+	
+	\begin{equation}
+		M_{\text{legal}}(p) = \{m \in M_{\text{pseudo}}(p) \mid \text{legal}(m, p)\}
+	\end{equation}
+	
+	\subsection*{Optimization: Early Legality Detection}
+	
+	For efficiency, some illegal moves can be detected without making the move:
+	
+	\begin{itemize}
+		\item \textbf{Pinned pieces}: If a piece is absolutely pinned to the king, it can only move along the pin ray
+		\item \textbf{King moves}: Only 8 possible destinations; check each for attacks
+		\item \textbf{En passant}: Requires special check for horizontal pins
+	\end{itemize}
+	
+	\section{Zobrist Hashing}
+	
+	\subsection*{Purpose}
+	
+	Zobrist hashing provides an efficient method to compute a nearly-unique hash value for chess positions. This enables fast transposition table lookups (storing previously evaluated positions) and threefold repetition detection. The key advantage is incremental updating: the hash can be updated in $O(1)$ time when making or unmaking moves, rather than recomputing from scratch.
+	
+	\subsection*{Hash Function Design}
+	
+	Let $h: \s \to \mathbb{Z}_{2^{64}}$ be a hash function from the space of chess positions $\s$ to 64-bit integers. We construct $h$ using the XOR operation and pre-generated random numbers.
+	
+	Define the following random 64-bit numbers (generated once at initialization):
+	
+	\begin{itemize}
+		\item $Z_{\tau,c,s}$ for each piece type $\tau$, color $c$, and square $s$: $6 \times 2 \times 64 = 768$ numbers
+		\item $Z_{\text{ep},f}$ for en passant on each file $f$: 8 numbers
+		\item $Z_{\text{castle},r}$ for each castling right $r \in \{\text{WK, WQ, BK, BQ}\}$: 4 numbers
+		\item $Z_{\text{side}}$ for side to move (1 number for black; white is implicit with hash unchanged)
+	\end{itemize}
+	
+	Total: $768 + 8 + 4 + 1 = 781$ random 64-bit numbers.
+	
+	\subsection*{Complete Hash Computation}
+	
+	For a position $p$, the Zobrist hash is:
+	
+	\begin{align}
+		h(p) = &\left(\bigoplus_{\substack{s \in [0,63] \\ \text{piece}(p,s) = (\tau, c)}} Z_{\tau,c,s}\right) \oplus \nonumber \\
+		&\left(\bigoplus_{r \in R(p)} Z_{\text{castle},r}\right) \oplus \nonumber \\
+		&\begin{cases}
+			Z_{\text{ep},f} & \text{if en passant square exists on file } f \\
+			0 & \text{otherwise}
+		\end{cases} \oplus \nonumber \\
+		&\begin{cases}
+			Z_{\text{side}} & \text{if side to move is black} \\
+			0 & \text{if side to move is white}
+		\end{cases}
+	\end{align}
+	
+	where:
+	\begin{itemize}
+		\item $\text{piece}(p, s)$ returns the piece type and color at square $s$ in position $p$
+		\item $R(p)$ is the set of available castling rights in position $p$
+		\item $\oplus$ denotes the XOR operation
+	\end{itemize}
+	
+	\subsection*{Incremental Hash Updates}
+	
+	The power of Zobrist hashing lies in incremental updates. When making a move that changes the position from $p$ to $p'$:
+	
+	\textbf{1. Moving a piece from $s_1$ to $s_2$:}
+	\begin{equation}
+		h(p') = h(p) \oplus Z_{\tau,c,s_1} \oplus Z_{\tau,c,s_2}
+	\end{equation}
+	
+	\textbf{2. Capturing (piece $(\tau_1, c_1)$ at $s_1$ captures piece $(\tau_2, c_2)$ at $s_2$):}
+	\begin{equation}
+		h(p') = h(p) \oplus Z_{\tau_1,c_1,s_1} \oplus Z_{\tau_1,c_1,s_2} \oplus Z_{\tau_2,c_2,s_2}
+	\end{equation}
+	
+	\textbf{3. Castling rights change from $R$ to $R'$:}
+	\begin{equation}
+		h(p') = h(p) \oplus \left(\bigoplus_{r \in R \triangle R'} Z_{\text{castle},r}\right)
+	\end{equation}
+	
+	where $R \triangle R'$ is the symmetric difference (rights that changed).
+	
+	\textbf{4. En passant square changes:}
+	\begin{equation}
+		h(p') = h(p) \oplus Z_{\text{ep},f_{\text{old}}} \oplus Z_{\text{ep},f_{\text{new}}}
+	\end{equation}
+	
+	(XOR with 0 if no en passant square exists).
+	
+	\textbf{5. Side to move changes:}
+	\begin{equation}
+		h(p') = h(p) \oplus Z_{\text{side}}
+	\end{equation}
+	
+	This is applied after every move.
+	
+	\subsection*{Hash Collision Analysis}
+	
+	For a uniform random hash function over $2^{64}$ values and a transposition table storing $k$ positions, the expected number of collisions is:
+	
+	\begin{equation}
+		\E[\text{collisions}] = \frac{k(k-1)}{2 \cdot 2^{64}} \approx \frac{k^2}{2^{65}}
+	\end{equation}
+	
+	For $k = 2^{24}$ (approximately 16 million positions):
+	
+	\begin{equation}
+		\E[\text{collisions}] \approx \frac{2^{48}}{2^{65}} = \frac{1}{2^{17}} \approx 0.0000076
+	\end{equation}
+	
+	The collision probability remains negligible for reasonable table sizes.
+	
+	\subsection*{Applications}
+	
+	\begin{enumerate}
+		\item \textbf{Transposition tables}: Store $\langle h(p), \text{depth}, \text{score}, \text{bestMove} \rangle$ tuples
+		\item \textbf{Repetition detection}: Maintain a history of hashes; threefold repetition occurs if $h(p)$ appears 3 times
+		\item \textbf{Opening books}: Index opening positions by hash for fast lookup
+	\end{enumerate}
+	
+	\section{Principal Variation}
+	
+	\subsection*{Purpose}
+	
+	The principal variation (PV) is the sequence of best moves found by the search algorithm, representing the expected continuation if both sides play optimally according to the engine's evaluation. Tracking the PV serves multiple purposes: understanding the engine's reasoning, providing informative output to users, enabling iterative deepening schemes, and improving move ordering in subsequent searches.
+	
+	\subsection*{Formal Definition}
+	
+	Let $\text{PV}(p, d)$ denote the principal variation from position $p$ at depth $d$. It is a sequence of moves:
+	
+	\begin{equation}
+		\text{PV}(p, d) = \langle m_1, m_2, \ldots, m_k \rangle
+	\end{equation}
+	
+	where $k \leq d$ and each $m_i$ is the best move at depth $d - i + 1$.
+	
+	Recursively:
+	
+	\begin{equation}
+		\text{PV}(p, d) = \begin{cases}
+			\langle \rangle & \text{if } d = 0 \text{ or } p \text{ is terminal} \\
+			\langle m^* \rangle \circ \text{PV}(p \circ m^*, d-1) & \text{otherwise}
+		\end{cases}
+	\end{equation}
+	
+	where $m^*$ is the best move at the current position:
+	
+	\begin{equation}
+		m^* = \begin{cases}
+			\argmax_{m \in M(p)} V_{AB}(p \circ m, d-1, \alpha, \beta) & \text{if MAX node} \\
+			\argmin_{m \in M(p)} V_{AB}(p \circ m, d-1, \alpha, \beta) & \text{if MIN node}
+		\end{cases}
+	\end{equation}
+	
+	and $\circ$ denotes sequence concatenation.
+	
+	\subsection*{Triangular PV Array}
+	
+	During alpha-beta search, the PV is stored in a triangular array to avoid expensive list operations:
+	
+	\begin{equation}
+		\text{PV}: [0 \ldots d_{\max}] \times [0 \ldots d_{\max}] \to \text{Move}
+	\end{equation}
+	
+	where $\text{PV}[i][j]$ contains the $j$-th move in the principal variation at depth $i$.
+	
+	\textbf{Update rule}: When a better move $m$ is found at depth $d$ (ply $p$):
+	
+	\begin{algorithm}
+		\caption{Update Principal Variation}
+		\begin{algorithmic}[1]
+			\Require Ply $p$, better move $m$ found at depth $d$, child PV at $p+1$
+			\Ensure Updated PV at ply $p$
+			\State $\text{PV}[p][0] \gets m$ \Comment{Store best move}
+			\State $\text{PV-length}[p] \gets 1 + \text{PV-length}[p+1]$ \Comment{Length is 1 + child PV length}
+			\For{$i \gets 0$ to $\text{PV-length}[p+1] - 1$}
+			\State $\text{PV}[p][i+1] \gets \text{PV}[p+1][i]$ \Comment{Copy child's PV}
+			\EndFor
+		\end{algorithmic}
+	\end{algorithm}
+	
+	This copies the child's PV and prepends the current move.
+	
+	\subsection*{PV Extraction}
+	
+	After search completes, extract the PV from the root:
+	
+	\begin{equation}
+		\text{FinalPV} = \langle \text{PV}[0][0], \text{PV}[0][1], \ldots, \text{PV}[0][\text{PV-length}[0]-1] \rangle
+	\end{equation}
+	
+	\subsection*{Iterative Deepening and PV}
+	
+	In iterative deepening, the engine searches to increasing depths $d = 1, 2, 3, \ldots$ until time runs out. The PV from iteration $d$ provides excellent move ordering for iteration $d+1$:
+	
+	\begin{equation}
+		\text{SearchOrder}_{d+1}(m) = \begin{cases}
+			10^9 - i & \text{if } m = \text{PV}_d[i] \\
+			\text{OtherHeuristics}(m) & \text{otherwise}
+		\end{cases}
+	\end{equation}
+	
+	This ensures PV moves are searched first, leading to earlier cutoffs.
+	
+	\subsection*{PV Stability}
+	
+	In stable positions, the PV often remains consistent across iterations:
+	
+	\begin{equation}
+		\text{PV}_{d}[0 \ldots k] = \text{PV}_{d+1}[0 \ldots k] \quad \text{for small } k
+	\end{equation}
+	
+	This property can be exploited for aspiration windows and other search optimizations.
+	
+	\section{Piece-Square Tables}
+	
+	\subsection*{Purpose}
+	
+	Piece-square tables (PSTs) encode positional knowledge by assigning a numerical value to each piece on each square. They capture strategic principles such as "knights are stronger in the center," "rooks belong on open files," and "advanced passed pawns are valuable." PSTs enable fast position evaluation without complex pattern recognition, making them ideal for the leaf node evaluation function in alpha-beta search.
+	
+	\subsection*{Formalism}
+	
+	For each piece type $\tau \in \mathcal{P} = \{P, N, B, R, Q, K\}$ and each square $s \in [0, 63]$, define a value:
+	
+	\begin{equation}
+		\text{PST}_\tau[s] \in \mathbb{Z}
+	\end{equation}
+	
+	typically expressed in \textit{centipawns} (hundredths of a pawn).
+	
+	The piece-square contribution to the evaluation is:
+	
+	\begin{equation}
+		E_{\text{PST}}(p) = \sum_{c \in \{w,b\}} \sigma(c) \sum_{\tau \in \mathcal{P}} \sum_{s \in S_{\tau,c}(p)} \text{PST}_\tau[s]
+	\end{equation}
+	
+	where:
+	\begin{itemize}
+		\item $\sigma(w) = +1$, $\sigma(b) = -1$ (score from White's perspective)
+		\item $S_{\tau,c}(p)$ is the set of squares occupied by pieces of type $\tau$ and color $c$ in position $p$
+	\end{itemize}
+	
+	\subsection*{Symmetry for Black Pieces}
+	
+	Black's PST values are typically mirrored vertically from White's:
+	
+	\begin{equation}
+		\text{PST}_{\tau}^b[s] = -\text{PST}_{\tau}^w[\text{mirror}(s)]
+	\end{equation}
+	
+	where:
+	
+	\begin{equation}
+		\text{mirror}(s) = s \oplus 56 = (7 - \text{rank}(s)) \times 8 + \text{file}(s)
+	\end{equation}
+	
+	\subsection*{\textit{Example:} Pawn PST}
+	
+	A typical pawn PST encourages central advancement (values in centipawns):
+	
+	\begin{center}
+		\begin{tabular}{|c|c|c|c|c|c|c|c|}
+			\hline
+			\multicolumn{8}{|c|}{Rank 8 (promotion rank)} \\
+			\hline
+			0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+			\hline
+			\multicolumn{8}{|c|}{Rank 7} \\
+			\hline
+			50 & 50 & 50 & 50 & 50 & 50 & 50 & 50 \\
+			\hline
+			\multicolumn{8}{|c|}{Rank 6} \\
+			\hline
+			10 & 10 & 20 & 30 & 30 & 20 & 10 & 10 \\
+			\hline
+			\multicolumn{8}{|c|}{Rank 5} \\
+			\hline
+			5 & 5 & 10 & 25 & 25 & 10 & 5 & 5 \\
+			\hline
+			\multicolumn{8}{|c|}{Rank 4} \\
+			\hline
+			0 & 0 & 0 & 20 & 20 & 0 & 0 & 0 \\
+			\hline
+			\multicolumn{8}{|c|}{Rank 3} \\
+			\hline
+			5 & -5 & -10 & 0 & 0 & -10 & -5 & 5 \\
+			\hline
+			\multicolumn{8}{|c|}{Rank 2} \\
+			\hline
+			5 & 10 & 10 & -20 & -20 & 10 & 10 & 5 \\
+			\hline
+			\multicolumn{8}{|c|}{Rank 1} \\
+			\hline
+			0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+			\hline
+		\end{tabular}
+	\end{center}
+	
+	This table penalizes pawns on the second rank center squares (discouraging $e3/d3$ before development) and rewards central advancement.
+	
+	\subsection*{\textit{Example:} Knight PST}
+	
+	Knights are strongest in the center and weak on edges:
+	
+	\begin{center}
+		\begin{tabular}{|c|c|c|c|c|c|c|c|}
+			\hline
+			-50 & -40 & -30 & -30 & -30 & -30 & -40 & -50 \\
+			\hline
+			-40 & -20 & 0 & 0 & 0 & 0 & -20 & -40 \\
+			\hline
+			-30 & 0 & 10 & 15 & 15 & 10 & 0 & -30 \\
+			\hline
+			-30 & 5 & 15 & 20 & 20 & 15 & 5 & -30 \\
+			\hline
+			-30 & 0 & 15 & 20 & 20 & 15 & 0 & -30 \\
+			\hline
+			-30 & 5 & 10 & 15 & 15 & 10 & 5 & -30 \\
+			\hline
+			-40 & -20 & 0 & 5 & 5 & 0 & -20 & -40 \\
+			\hline
+			-50 & -40 & -30 & -30 & -30 & -30 & -40 & -50 \\
+			\hline
+		\end{tabular}
+	\end{center}
+	
+	\subsection*{Phase-Dependent King PST}
+	
+	King safety requirements differ between middlegame and endgame. Define two separate PSTs:
+	
+	\begin{align}
+		&\text{PST}_{K}^{\text{mg}}[s] \quad \text{(middlegame: encourage castling)} \\
+		&\text{PST}_{K}^{\text{eg}}[s] \quad \text{(endgame: encourage centralization)}
+	\end{align}
+	
+	Interpolate based on game phase $\phi \in [0, 1]$:
+	
+	\begin{equation}
+		\text{PST}_K[s] = (1 - \phi) \cdot \text{PST}_{K}^{\text{mg}}[s] + \phi \cdot \text{PST}_{K}^{\text{eg}}[s]
+	\end{equation}
+	
+	where $\phi$ is computed from remaining material:
+	
+	\begin{equation}
+		\phi = 1 - \frac{\text{NonPawnMaterial}(p)}{\text{NonPawnMaterial}_{\text{start}}}
+	\end{equation}
+	
+	\subsection*{Incremental PST Updates}
+	
+	Like Zobrist hashing, PST evaluation can be updated incrementally. Maintain a running PST score:
+	
+	\begin{equation}
+		\text{PST-score}(p') = \text{PST-score}(p) + \Delta_{\text{PST}}(m)
+	\end{equation}
+	
+	where for a move from $s_1$ to $s_2$:
+	
+	\begin{equation}
+		\Delta_{\text{PST}}(m) = \sigma(c) \left(\text{PST}_\tau[s_2] - \text{PST}_\tau[s_1]\right) + \text{capture-bonus}
+	\end{equation}
+	
+	\section{Move Ordering}
+	
+	\subsection*{Purpose}
+	
+	Move ordering is critical for alpha-beta efficiency. Searching better moves first increases the likelihood of early cutoffs, reducing the number of nodes examined. With perfect move ordering, alpha-beta achieves $O(b^{d/2})$ complexity; with random ordering, it degrades to $O(b^d)$. The goal is to approximate optimal ordering using fast heuristics.
+	
+	\subsection*{Move Ordering Heuristics}
+	
+	Define a scoring function $\text{score}: \text{Move} \to \mathbb{R}$ that ranks moves by expected quality. Moves are sorted in descending order of score before search:
+	
+	\begin{equation}
+		M_{\text{ordered}}(p) = \text{sort}(M(p), \lambda m_1, m_2. \text{score}(m_1) > \text{score}(m_2))
+	\end{equation}
+	
+	\subsection*{MVV-LVA (Most Valuable Victim - Least Valuable Attacker)}
+	
+	For captures, prioritize taking high-value pieces with low-value pieces:
+	
+	\begin{equation}
+		\text{score}_{\text{MVV-LVA}}(m) = 10 \cdot V(\text{captured}) - V(\text{attacker})
+	\end{equation}
+	
+	where $V: \mathcal{P} \to \mathbb{R}$ is the piece value function:
+	
+	\begin{align}
+		V(P) &= 1 \\
+		V(N) &= 3 \\
+		V(B) &= 3 \\
+		V(R) &= 5 \\
+		V(Q) &= 9 \\
+		V(K) &= 0 \quad \text{(king captures handled separately)}
+	\end{align}
+	
+	Example ordering:
+	\begin{equation}
+		\text{Queen captures pawn} > \text{Pawn captures queen} > \text{Knight captures bishop} > \cdots
+	\end{equation}
+	
+	\subsection*{Killer Move Heuristic}
+	
+	Killer moves are quiet moves (non-captures) that caused beta cutoffs at the same ply in sibling positions. Maintain a table:
+	
+	\begin{equation}
+		\text{Killers}: [0 \ldots d_{\max}] \times [0 \ldots k-1] \to \text{Move}
+	\end{equation}
+	
+	where $\text{Killers}[p][i]$ is the $i$-th killer move at ply $p$ (typically $k = 2$).
+	
+	When a quiet move $m$ causes a beta cutoff at ply $p$:
+	
+	\begin{align}
+		&\text{Killers}[p][1] \leftarrow \text{Killers}[p][0] \\
+		&\text{Killers}[p][0] \leftarrow m
+	\end{align}
+	
+	Killer move scoring:
+	
+	\begin{equation}
+		\text{score}_{\text{killer}}(m, p) = \begin{cases}
+			10^6 & \text{if } m = \text{Killers}[p][0] \\
+			10^5 & \text{if } m = \text{Killers}[p][1] \\
+			0 & \text{otherwise}
+		\end{cases}
+	\end{equation}
+	
+	\subsection*{History Heuristic}
+	
+	The history heuristic tracks how often each move caused a cutoff across the entire search tree:
+	
+	\begin{equation}
+		\text{History}: [0 \ldots 63] \times [0 \ldots 63] \to \mathbb{N}
+	\end{equation}
+	
+	where $\text{History}[s_1][s_2]$ counts cutoffs for moves from $s_1$ to $s_2$.
+	
+	When move $m = (s_1, s_2, \cdots)$ causes a beta cutoff:
+	
+	\begin{equation}
+		\text{History}[s_1][s_2] \leftarrow \text{History}[s_1][s_2] + \text{depth}^2
+	\end{equation}
+	
+	Squaring the depth gives more weight to cutoffs closer to the root.
+	
+	History move scoring:
+	
+	\begin{equation}
+		\text{score}_{\text{history}}(m) = \text{History}[\text{from}(m)][\text{to}(m)]
+	\end{equation}
+	
+	\subsection*{Composite Move Ordering}
+	
+	Combine heuristics with decreasing priority:
+	
+	\begin{align}
+		\text{score}(m) = &\begin{cases}
+			10^{10} & \text{if } m = \text{HashMove} \\
+			10^9 + \text{score}_{\text{MVV-LVA}}(m) & \text{if } m \text{ is capture} \\
+			10^6 + i & \text{if } m = \text{Killers}[p][i] \\
+			\text{score}_{\text{history}}(m) & \text{otherwise (quiet moves)}
+		\end{cases}
+	\end{align}
+	
+	where HashMove is the best move from the transposition table.
+	
+	\subsection*{Expected Performance Gain}
+	
+	With good move ordering, the effective branching factor can be reduced by a factor of 2-4:
+	
+	\begin{equation}
+		b_{\text{eff}} \approx \frac{b}{2} \quad \text{to} \quad \frac{b}{4}
+	\end{equation}
+	
+	For chess with $b \approx 35$, this means searching to depth 12 with $b_{\text{eff}} \approx 9$ instead of depth 6 with $b = 35$ in the same time.
+	
+	\subsection*{Lazy Evaluation}
+	
+	To further optimize, generate and score moves lazily:
+	
+	\begin{enumerate}
+		\item Generate hash move (if exists) and search it
+		\item Generate captures, score with MVV-LVA, search in order
+		\item Generate killer moves, search them
+		\item Generate remaining quiet moves, score with history, search in order
+	\end{enumerate}
+	
+	This avoids generating all moves when an early cutoff occurs.
+	
+	\begin{thebibliography}{9}
+		
+		\bibitem{cpw}
+		Chess Programming Wiki.
+		\textit{Chess Programming Wiki}.
+		Accessed February 2026.
+		\href{https://www.chessprogramming.org/}{https://www.chessprogramming.org/}
+		
+		\bibitem{knuth1975}
+		Knuth, D. E., \& Moore, R. W. (1975).
+		\textit{An analysis of alpha-beta pruning}.
+		Artificial Intelligence, 6(4), 293-326.
+		\href{https://doi.org/10.1016/0004-3702(75)90019-3}{https://doi.org/10.1016/0004-3702(75)90019-3}
+		
+		\bibitem{mediocrechess}
+		Jonatan Pettersson.
+		\textit{Mediocre Chess: Guide to Writing a Chess Engine}.
+		\href{https://mediocrechess.blogspot.com/}{https://mediocrechess.blogspot.com/}
+		
+		\bibitem{perfecthashing}
+		Wikipedia. \href{https://en.wikipedia.org/wiki/Perfect_hash_function}{Perfect Hash Function}
+		
+		\bibitem{multiplicativehashing}
+		\textit{Lecture 21: Hash Functions and Hash Tables}.
+		CS 3110: Data Structures and Functional Programming, Cornell University.
+		\href{https://www.cs.cornell.edu/courses/cs3110/2008fa/lectures/lec21.html}{https://www.cs.cornell.edu/courses/cs3110/2008fa/lectures/lec21.html}
+		
+		\bibitem{zobrist1970}
+		Zobrist, A. L. (1970).
+		\textit{A new hashing method with application for game playing}.
+		Technical Report 88, Computer Sciences Department, University of Wisconsin, Madison, Wisconsin.
+		\href{https://minds.wisconsin.edu/handle/1793/57624}{Minds @ UW}
+		
+		\bibitem{shannon1950}
+		Shannon, C. E. (1950).
+		\textit{Programming a computer for playing chess}.
+		The London, Edinburgh, and Dublin Philosophical Magazine and Journal of Science, 41(314), 256-275.
+		\href{https://doi.org/10.1080/14786445008521796}{https://doi.org/10.1080/14786445008521796}
+		
+		\bibitem{bitboards}
+		\textit{Rotated Bitboards}.
+		\href{https://www.chessprogramming.org/Rotated_Bitboards}{https://www.chessprogramming.org/Rotated\_Bitboards}
+		
+		\bibitem{magicbitboards}
+		\textit{Magic Bitboards}.
+		\href{https://www.chessprogramming.org/Magic_Bitboards}{https://www.chessprogramming.org/Magic\_Bitboardsi}
+		
+		\bibitem{repo}
+		\textit{GitHub Repository}.
+		\href{https://github.com/Stochastic-Batman/Zugzwang.git}{Zugzwang}
+		
+	\end{thebibliography}
+	
+\end{document}
