@@ -32,6 +32,7 @@ The engine outputs moves in algebraic notation using a two-column format (White 
 │   ├── zobrist.h/.c              # Zobrist hashing implementation
 │   └── main.c                    # Entry point and game loop
 │
+├── tests/                        # Test Suite
 ├── Makefile                      # Build configuration
 ├── README.md                     # This file
 ├── LICENSE                       # Project license
