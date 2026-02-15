@@ -102,6 +102,36 @@ Moves are displayed in standard algebraic notation:
 - Check: `Nf7+`
 - Checkmate: `Qh5#`
 
+## Testing
+
+The project includes a test suite for each source file in the `tests/` directory.
+
+### Running Tests
+
+To test a specific module:
+
+```bash
+make test TESTFILE=<filename>
+```
+
+### Examples
+
+```bash
+# Test bitboard module
+make test TESTFILE=bitboard
+
+# Test board module
+make test TESTFILE=board
+```
+
+### Test File Naming Convention
+
+Test files follow the naming pattern `test_<module>.c` and are located in the `tests/` directory:
+
+- `tests/test_bitboard.c` - Tests for `src/bitboard.c`
+- `tests/test_board.c` - Tests for `src/board.c`
+- etc.
+
 ## Acknowledgments
 
 Special thanks to [the Chess Programming Wiki](https://www.chessprogramming.org/Main_Page) for extensive documentation and resources that made this implementation possible.
