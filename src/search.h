@@ -5,6 +5,7 @@
 #include "board.h"
 #include "moves.h"
 #include "transposition.h"
+#include <stddef.h>
 
 // Search information and statistics
 typedef struct {
@@ -37,18 +38,14 @@ extern Move killer_moves[MAX_PLY][2];
 extern int history_table[2][64][64];
 
 // Main search functions
-int negamax(Board* board, int depth, int alpha, int beta, int ply, 
-            SearchInfo* info, SearchParams* params);
+int negamax(Board* board, int depth, int alpha, int beta, int ply, SearchInfo* info, SearchParams* params);
 
-int quiescence_search(Board* board, int alpha, int beta, int ply, 
-                     SearchInfo* info, SearchParams* params);
+int quiescence_search(Board* board, int alpha, int beta, int ply, SearchInfo* info, SearchParams* params);
 
-Move find_best_move(Board* board, int depth, SearchInfo* info, 
-                   SearchParams* params);
+Move find_best_move(Board* board, int depth, SearchInfo* info, SearchParams* params);
 
 // Iterative deepening with aspiration windows
-Move iterative_deepening(Board* board, int max_depth, 
-                        SearchInfo* info, SearchParams* params);
+Move iterative_deepening(Board* board, int max_depth, SearchInfo* info, SearchParams* params);
 
 // Heuristic updates
 void update_killers(Move move, int ply);

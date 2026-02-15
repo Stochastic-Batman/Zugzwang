@@ -35,6 +35,8 @@ BITBOARD_DEPS = $(SRCDIR)/bitboard.c
 ZOBRIST_DEPS = $(SRCDIR)/zobrist.c $(SRCDIR)/bitboard.c $(SRCDIR)/moves.c $(SRCDIR)/board.c
 MOVES_DEPS = $(SRCDIR)/moves.c $(SRCDIR)/board.c $(SRCDIR)/bitboard.c $(SRCDIR)/zobrist.c
 BOARD_DEPS = $(SRCDIR)/board.c $(SRCDIR)/bitboard.c $(SRCDIR)/zobrist.c $(SRCDIR)/moves.c
+MOVEGEN_DEPS = $(SRCDIR)/movegen.c $(SRCDIR)/board.c $(SRCDIR)/bitboard.c $(SRCDIR)/zobrist.c $(SRCDIR)/moves.c
+EVALUATION_DEPS = $(SRCDIR)/evaluation.c $(SRCDIR)/movegen.c $(SRCDIR)/board.c $(SRCDIR)/bitboard.c $(SRCDIR)/zobrist.c $(SRCDIR)/moves.c
 
 test:
 ifndef TESTFILE
@@ -51,6 +53,10 @@ else ifeq ($(TESTFILE),moves)
 	@$(CC) $(CFLAGS) -o $(TESTDIR)/test_$(TESTFILE) $(TESTDIR)/test_$(TESTFILE).c $(MOVES_DEPS)
 else ifeq ($(TESTFILE),board)
 	@$(CC) $(CFLAGS) -o $(TESTDIR)/test_$(TESTFILE) $(TESTDIR)/test_$(TESTFILE).c $(BOARD_DEPS)
+else ifeq ($(TESTFILE),movegen)
+	@$(CC) $(CFLAGS) -o $(TESTDIR)/test_$(TESTFILE) $(TESTDIR)/test_$(TESTFILE).c $(MOVEGEN_DEPS)
+else ifeq ($(TESTFILE),evaluation)
+	@$(CC) $(CFLAGS) -o $(TESTDIR)/test_$(TESTFILE) $(TESTDIR)/test_$(TESTFILE).c $(EVALUATION_DEPS)
 else
 	@echo "Unknown test file: $(TESTFILE)"
 	@echo "Trying with just $(TESTFILE).c as dependency..."
