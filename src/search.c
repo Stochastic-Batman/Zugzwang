@@ -242,7 +242,7 @@ int negamax(Board* board, int depth, int alpha, int beta, int ply, SearchInfo* i
 Move find_best_move(Board* board, int depth, SearchInfo* info, SearchParams* params) {
     init_search(info);
     
-    int score = negamax(board, depth, -INFINITE, INFINITE, 0, info, params);
+    negamax(board, depth, -INFINITE, INFINITE, 0, info, params);
     
     // Extract PV
     if (params->tt) {
