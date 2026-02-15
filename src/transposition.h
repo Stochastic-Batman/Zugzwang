@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "moves.h"
+#include <stddef.h>
 
 // Transposition table entry
 typedef struct {

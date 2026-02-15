@@ -188,10 +188,7 @@ int evaluate_piece_square(const Board* board) {
 }
 
 int evaluate_mobility(const Board* board) {
-    int score = 0;
-    
     MoveList white_moves, black_moves;
-    Color original_side = board->side_to_move;
     
     // Count mobility
     Board temp;
@@ -212,10 +209,10 @@ int evaluate_pawn_structure(const Board* board) {
     
     // Doubled pawns penalty
     for (int file = 0; file < 8; file++) {
-        Bitboard file_mask = file_mask(file);
+        Bitboard fmask = file_mask(file);
         
-        int white_pawns = popcount(board->pieces[WHITE][PAWN] & file_mask);
-        int black_pawns = popcount(board->pieces[BLACK][PAWN] & file_mask);
+        int white_pawns = popcount(board->pieces[WHITE][PAWN] & fmask);
+        int black_pawns = popcount(board->pieces[BLACK][PAWN] & fmask);
         
         if (white_pawns > 1) score -= (white_pawns - 1) * 10;
         if (black_pawns > 1) score += (black_pawns - 1) * 10;
@@ -223,20 +220,18 @@ int evaluate_pawn_structure(const Board* board) {
     
     // Isolated pawns penalty (simplified)
     for (int file = 0; file < 8; file++) {
-        Bitboard file_mask = file_mask(file);
+        Bitboard fmask = file_mask(file);
         Bitboard adjacent_files = 0ULL;
         if (file > 0) adjacent_files |= file_mask(file - 1);
         if (file < 7) adjacent_files |= file_mask(file + 1);
         
         // White isolated pawns
-        if ((board->pieces[WHITE][PAWN] & file_mask) && 
-            !(board->pieces[WHITE][PAWN] & adjacent_files)) {
+        if ((board->pieces[WHITE][PAWN] & fmask) && !(board->pieces[WHITE][PAWN] & adjacent_files)) {
             score -= 15;
         }
         
         // Black isolated pawns
-        if ((board->pieces[BLACK][PAWN] & file_mask) && 
-            !(board->pieces[BLACK][PAWN] & adjacent_files)) {
+        if ((board->pieces[BLACK][PAWN] & fmask) && !(board->pieces[BLACK][PAWN] & adjacent_files)) {
             score += 15;
         }
     }
@@ -253,21 +248,21 @@ int evaluate_king_safety(const Board* board) {
     
     if (white_king != NO_SQUARE) {
         int file = square_file(white_king);
-        Bitboard file_mask_w = file_mask(file);
+        Bitboard fmask_w = file_mask(file);
         
         // Penalty for king on open file (no pawns)
-        if (!(board->pieces[WHITE][PAWN] & file_mask_w) &&
-            !(board->pieces[BLACK][PAWN] & file_mask_w)) {
+        if (!(board->pieces[WHITE][PAWN] & fmask_w) &&
+            !(board->pieces[BLACK][PAWN] & fmask_w)) {
             score -= 20;
         }
     }
     
     if (black_king != NO_SQUARE) {
         int file = square_file(black_king);
-        Bitboard file_mask_b = file_mask(file);
+        Bitboard fmask_b = file_mask(file);
         
-        if (!(board->pieces[WHITE][PAWN] & file_mask_b) &&
-            !(board->pieces[BLACK][PAWN] & file_mask_b)) {
+        if (!(board->pieces[WHITE][PAWN] & fmask_b) &&
+            !(board->pieces[BLACK][PAWN] & fmask_b)) {
             score += 20;
         }
     }

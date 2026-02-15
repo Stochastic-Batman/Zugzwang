@@ -7,6 +7,10 @@
 #include <string.h>
 
 
+// Global tables for move ordering heuristics
+Move killer_moves[MAX_PLY][2];
+int history_table[2][64][64];
+
 // Function pointer array for piece-specific move generation
 MoveGenFunc piece_movegen[6] = {
     generate_pawn_moves,
@@ -55,11 +59,9 @@ void generate_pawn_moves(const Board* board, Square sq, MoveList* list) {
     Color us = board->side_to_move;
     Color them = (us == WHITE) ? BLACK : WHITE;
     int rank = square_rank(sq);
-    int file = square_file(sq);
     
     int forward_dir = (us == WHITE) ? 8 : -8;
     int start_rank = (us == WHITE) ? 1 : 6;
-    int promo_rank = (us == WHITE) ? 6 : 1;
     
     // Single push
     Square to = sq + forward_dir;

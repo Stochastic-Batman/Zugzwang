@@ -6,10 +6,6 @@
 #include "transposition.h"
 #include <string.h>
 
-// Global tables for move ordering heuristics
-Move killer_moves[MAX_PLY][2];
-int history_table[2][64][64];
-
 
 // Heuristic Updates
 

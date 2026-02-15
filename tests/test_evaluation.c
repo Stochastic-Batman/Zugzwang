@@ -40,7 +40,7 @@ void test_material_evaluation() {
     assert(score == 0);
     
     // White up a pawn
-    set_fen(&board, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN1 w Qkq - 0 1");
+    set_fen(&board, "rnbqkbnr/ppppppp1/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     score = evaluate_material(&board);
     assert(score > 0);
     

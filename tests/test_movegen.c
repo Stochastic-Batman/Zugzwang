@@ -17,6 +17,7 @@ void test_pawn_moves_starting_position() {
     init_board(&board);
     
     MoveList list;
+    init_move_list(&list);
     generate_pawn_moves(&board, E2, &list);
     
     assert(list.count == 2);  // e4 and e3
