@@ -34,9 +34,21 @@ Bitboard anti_diagonal_mask(Square sq);
 // Initialization
 void init_bitboards(void);
 
-// Precomputed attack tables
+// Precomputed attack tables (non-sliding pieces)
 extern Bitboard pawn_attack_table[2][64];
 extern Bitboard knight_attack_table[64];
 extern Bitboard king_attack_table[64];
+
+// Magic bitboards for sliding pieces
+extern Bitboard rook_magics[64];
+extern Bitboard bishop_magics[64];
+extern Bitboard rook_masks[64];
+extern Bitboard bishop_masks[64];
+extern int rook_shifts[64];
+extern int bishop_shifts[64];
+
+// Attack tables for magic bitboards
+extern Bitboard rook_attacks_table[64][4096];
+extern Bitboard bishop_attacks_table[64][512];
 
 #endif // BITBOARD_H
