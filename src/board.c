@@ -539,20 +539,20 @@ bool is_insufficient_material(const Board* board) {
 }
 
 bool is_repetition(const Board* board) {
-    int count = 0;
+    int count = 1;
     
     // Check history backwards (only check positions since last irreversible move)
-    for (int i = board->history_index - 1; i >= 0; i--) {
+    for (int i = board->history_index - 2; i >= 0; i--) {
         if (board->position_history[i] == board->hash) {
             count++;
-            if (count >= 2) {  // Threefold repetition
+            if (count >= 3) {  // Threefold repetition
                 return true;
             }
         }
         
         // Stop at last irreversible move (captured piece or pawn move)
         // This is approximated by checking the halfmove clock
-        if (board->history_index - i > board->halfmove_clock) {
+        if (board->history_index - 1 - i > board->halfmove_clock) {
             break;
         }
     }

@@ -1,4 +1,5 @@
 #include "bitboard.h"
+#include "moves.h"
 #include "zobrist.h"
 #include <stdlib.h>
 #include <time.h>

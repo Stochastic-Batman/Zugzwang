@@ -8,7 +8,7 @@
 // Bits 6-11:  to square (6 bits, 0-63)
 // Bits 12-15: move flags (4 bits)
 
-Move make_move(Square from, Square to, MoveFlags flags) {
+Move encode_move(Square from, Square to, MoveFlags flags) {
     return (Move)((flags << 12) | (to << 6) | from);
 }
 

@@ -3,8 +3,11 @@
 
 #include "types.h"
 
+// Forward declaration
+typedef struct Board Board;
+
 // Move encoding/decoding
-Move make_move(Square from, Square to, MoveFlags flags);
+Move encode_move(Square from, Square to, MoveFlags flags);
 Square move_from(Move move);
 Square move_to(Move move);
 MoveFlags move_flags(Move move);

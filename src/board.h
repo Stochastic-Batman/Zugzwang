@@ -13,7 +13,7 @@ typedef struct {
 } UndoInfo;
 
 // Board representation
-typedef struct {
+typedef struct Board {
     Bitboard pieces[2][6];  // [color][piece_type]
     Bitboard occupied[2];    // [color]
     Bitboard all_occupied;
@@ -54,7 +54,6 @@ void unmake_move(Board* board, Move move);
 bool make_move_if_legal(Board* board, Move move);
 
 // Board utilities
-void print_board(const Board* board);
 Bitboard get_attackers(const Board* board, Square sq, Color color);
 bool is_insufficient_material(const Board* board);
 bool is_repetition(const Board* board);
