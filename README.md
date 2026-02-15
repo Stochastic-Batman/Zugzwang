@@ -1,5 +1,6 @@
 # Zugzwang
 
+Chess engine with negamax search (alpha‑beta), magic bitboards, piece‑square tables, move‑ordering heuristics, and Zobrist hashing (no GUI).
 Chess Engine (no GUI)
 
 ## Project Overview
@@ -7,7 +8,7 @@ Chess Engine (no GUI)
 **Zugzwang** is a chess engine, which implements:
 - **Bitboard representation** for efficient board state encoding
 - **Magic bitboards** for fast sliding piece attack generation
-- **Minimax algorithm with alpha-beta pruning** for optimal move selection
+- **Negamax search algorithm with alpha-beta pruning** for optimal move selection
 - **Zobrist hashing** for position transposition and repetition detection
 - **Principal variation tracking** for iterative deepening
 - **Piece-square tables** for fast position evaluation
