@@ -106,7 +106,7 @@ Moves are displayed in standard algebraic notation:
 
 ## Testing
 
-The project includes a test suite for each source file in the `tests/` directory.
+The project includes a test suite for each source file in the `tests/` directory. The tests were written by Claude Sonnet 4.5.
 
 ### Running Tests
 

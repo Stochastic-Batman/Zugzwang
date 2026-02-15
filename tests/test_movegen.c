@@ -161,8 +161,7 @@ void test_generate_captures_only() {
     init_zobrist();
     
     Board board;
-    set_fen(&board, "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2");
-    
+    set_fen(&board, "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2");   
     MoveList list;
     generate_captures(&board, &list);
     
@@ -179,11 +178,10 @@ void test_mvv_lva_scoring() {
     init_zobrist();
     
     Board board;
-    set_fen(&board, "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
-    
+    set_fen(&board, "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
     // Pawn takes pawn
-    Move pxe5 = encode_move(E4, E5, CAPTURE);
-    int score = mvv_lva_score(&board, pxe5);
+    Move pxd5 = encode_move(E4, D5, CAPTURE);
+    int score = mvv_lva_score(&board, pxd5);
     
     assert(score > 0);
 }

@@ -165,12 +165,11 @@ void test_full_evaluation() {
     assert(abs(score) < 100);
     
     // Position with advantage
-    set_fen(&board, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN1 w Qkq - 0 1");
+    set_fen(&board, "rnbqkbnr/ppppppp1/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");   
     score = evaluate(&board);
     assert(score > 0);  // White advantage
-    
     // Switch side to move
-    set_fen(&board, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN1 b Qkq - 0 1");
+    set_fen(&board, "rnbqkbnr/ppppppp1/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1");
     score = evaluate(&board);
     assert(score < 0);  // Black to move, so negative score
 }
@@ -180,13 +179,13 @@ void test_evaluation_symmetry() {
     init_zobrist();
     
     Board board1, board2;
-    
-    // White pawn on e4
+
+    // White pawn on e4, White to move
     set_fen(&board1, "4k3/8/8/8/4P3/8/8/4K3 w - - 0 1");
     int score1 = evaluate(&board1);
-    
-    // Black pawn on e5 (mirrored position)
-    set_fen(&board2, "4k3/8/8/4p3/8/8/8/4K3 b - - 0 1");
+
+    // Same position, Black to move
+    set_fen(&board2, "4k3/8/8/8/4P3/8/8/4K3 b - - 0 1");
     int score2 = evaluate(&board2);
     
     // Scores should be opposite (within small margin)
