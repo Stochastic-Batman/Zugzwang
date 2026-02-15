@@ -1,5 +1,6 @@
 // test_search.c
 // Test suite for search.c
+// FULLY FIXED VERSION with all corrections
 
 #include "../src/search.h"
 #include "../src/board.h"
@@ -115,10 +116,11 @@ void test_negamax_finds_mate_in_one() {
     init_zobrist();
     
     Board board;
-    // White to move, mate in one with Qh5#
-    set_fen(&board, "rnbqkb1r/pppp1ppp/5n2/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR w KQkq - 0 1");
+    // FIX #1: Corrected FEN - Scholar's Mate with Bishop on c4
+    set_fen(&board, "rnbqkb1r/pppp1ppp/5n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 1");
     
     SearchInfo info;
+    init_search(&info);  // FIX #2: Initialize info before use
     SearchParams params = {0};
     params.use_quiescence = false;
     params.use_aspiration = false;
@@ -138,17 +140,23 @@ void test_find_best_move_opening() {
     Board board;
     init_board(&board);
     
+    // FIX #3: Add transposition table (required for find_best_move)
+    TranspositionTable tt;
+    init_tt(&tt, 1);
+    
     SearchInfo info;
     SearchParams params = {0};
     params.use_quiescence = false;
     params.use_aspiration = false;
-    params.tt = NULL;
+    params.tt = &tt;  // Provide TT so best move can be extracted
     
     Move best_move = find_best_move(&board, 3, &info, &params);
     
     // Should return a valid move
     assert(best_move != 0);
     assert(is_legal(&board, best_move));
+    
+    free_tt(&tt);
 }
 
 void test_quiescence_search_basic() {
@@ -178,11 +186,15 @@ void test_iterative_deepening() {
     Board board;
     init_board(&board);
     
+    // FIX #4: Add transposition table (required for iterative_deepening)
+    TranspositionTable tt;
+    init_tt(&tt, 1);
+    
     SearchInfo info;
     SearchParams params = {0};
     params.use_quiescence = false;
     params.use_aspiration = false;
-    params.tt = NULL;
+    params.tt = &tt;  // Provide TT so best move can be extracted
     
     Move best_move = iterative_deepening(&board, 3, &info, &params);
     
@@ -190,6 +202,8 @@ void test_iterative_deepening() {
     assert(best_move != 0);
     assert(is_legal(&board, best_move));
     assert(info.nodes_searched > 0);
+    
+    free_tt(&tt);
 }
 
 void test_extract_pv_empty() {
