@@ -38,6 +38,8 @@ BOARD_DEPS = $(SRCDIR)/board.c $(SRCDIR)/bitboard.c $(SRCDIR)/zobrist.c $(SRCDIR
 MOVEGEN_DEPS = $(SRCDIR)/movegen.c $(SRCDIR)/board.c $(SRCDIR)/bitboard.c $(SRCDIR)/zobrist.c $(SRCDIR)/moves.c
 EVALUATION_DEPS = $(SRCDIR)/evaluation.c $(SRCDIR)/movegen.c $(SRCDIR)/board.c $(SRCDIR)/bitboard.c $(SRCDIR)/zobrist.c $(SRCDIR)/moves.c
 SEARCH_DEPS = $(SRCDIR)/search.c $(SRCDIR)/transposition.c $(SRCDIR)/movegen.c $(SRCDIR)/evaluation.c $(SRCDIR)/board.c $(SRCDIR)/bitboard.c $(SRCDIR)/zobrist.c $(SRCDIR)/moves.c
+TRANSPOSITION_DEPS = $(SRCDIR)/transposition.c $(SRCDIR)/moves.c $(SRCDIR)/board.c $(SRCDIR)/bitboard.c $(SRCDIR)/zobrist.c
+NOTATION_DEPS = $(SRCDIR)/notation.c $(SRCDIR)/movegen.c $(SRCDIR)/board.c $(SRCDIR)/bitboard.c $(SRCDIR)/zobrist.c $(SRCDIR)/moves.c
 
 test:
 ifndef TESTFILE
@@ -60,6 +62,10 @@ else ifeq ($(TESTFILE),evaluation)
 	@$(CC) $(CFLAGS) -o $(TESTDIR)/test_$(TESTFILE) $(TESTDIR)/test_$(TESTFILE).c $(EVALUATION_DEPS)
 else ifeq ($(TESTFILE),search)
 	@$(CC) $(CFLAGS) -o $(TESTDIR)/test_$(TESTFILE) $(TESTDIR)/test_$(TESTFILE).c $(SEARCH_DEPS)
+else ifeq ($(TESTFILE),transposition)
+	@$(CC) $(CFLAGS) -o $(TESTDIR)/test_$(TESTFILE) $(TESTDIR)/test_$(TESTFILE).c $(TRANSPOSITION_DEPS)
+else ifeq ($(TESTFILE),notation)
+	@$(CC) $(CFLAGS) -o $(TESTDIR)/test_$(TESTFILE) $(TESTDIR)/test_$(TESTFILE).c $(NOTATION_DEPS)
 else
 	@echo "Unknown test file: $(TESTFILE)"
 	@echo "Trying with just $(TESTFILE).c as dependency..."
@@ -69,7 +75,7 @@ endif
 	@rm -f $(TESTDIR)/test_$(TESTFILE)
 
 clean:
-	rm -f $(OBJECTS) $(TARGET) $(TESTDIR)/test_*
+	rm -f $(OBJECTS) $(TARGET) $(shell find $(TESTDIR) -maxdepth 2 -type f ! -name '*.c')
 
 rebuild: clean all
 

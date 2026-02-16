@@ -25,8 +25,6 @@ void print_two_column_move(const Board* board, Move white_move, Move black_move,
 Move read_user_move(const Board* board);
 bool try_parse_move(const Board* board, const char* input, Move* out_move);
 void print_engine_move(const Board* board, Move move, int move_number);
-void print_position(const Board* board);
-void print_board_simple(const Board* board);
 Color choose_player_color(void);
 
 // Move input validation and help
