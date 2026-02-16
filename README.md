@@ -74,14 +74,7 @@ Topics covered include:
 make
 ```
 
-This produces the `zugzwang` binary.
-
-### Clean Build
-
-```bash
-make clean      # Remove object files and binary
-make rebuild    # Clean and rebuild
-```
+This produces the `zugzwang` binary and removes all the unnecessary intermediate object files.
 
 ## Usage
 
@@ -110,7 +103,7 @@ The project includes a test suite for each source file in the `tests/` directory
 
 ### Running Tests
 
-To test a specific module:
+To test a specific module (except `src/main.c`):
 
 ```bash
 make test TESTFILE=<filename>
