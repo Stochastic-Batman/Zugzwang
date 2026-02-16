@@ -64,7 +64,6 @@ void play_game(Color player_color, int search_depth) {
     int move_number = 1;
     
     while (true) {
-        // Check for game over
         MoveList legal_moves;
         generate_moves(&board, &legal_moves);
         
@@ -90,7 +89,6 @@ void play_game(Color player_color, int search_depth) {
             break;
         }
         
-        // Check for draw conditions
         if (is_fifty_move_draw(&board)) {
             printf("\nDraw by fifty-move rule.\n");
             break;
@@ -102,10 +100,9 @@ void play_game(Color player_color, int search_depth) {
         }
         
         Move move = 0;
+        char move_str[16] = "";
         
-        // Get move (from player or engine)
         if (board.side_to_move == player_color) {
-            // Player's turn
             if (board.side_to_move == WHITE) {
                 printf("%2d. ", move_number);
             } else {
@@ -119,11 +116,8 @@ void play_game(Color player_color, int search_depth) {
                 break;
             }
 
-            char move_str[16];
             move_to_algebraic(&board, move, move_str);
-            printf("%-6s", move_str);
         } else {
-            // Engine's turn
             if (board.side_to_move == WHITE) {
                 printf("%2d. ", move_number);
             } else {
@@ -138,7 +132,6 @@ void play_game(Color player_color, int search_depth) {
                 break;
             }
             
-            char move_str[16];
             move_to_algebraic(&board, move, move_str);
             printf("%-6s", move_str);
         }
@@ -148,7 +141,13 @@ void play_game(Color player_color, int search_depth) {
         if (board.side_to_move == WHITE) {
             printf("\n");
             move_number++;
-}       else printf("   ");
+        } else {
+            if (player_color == WHITE) {
+                printf("\033[1A\r%2d. %-6s   ", move_number, move_str);
+            } else {
+                printf("   ");
+            }
+        }
     }
     
     free_tt(&tt);
@@ -170,7 +169,6 @@ int main(void) {
     
     printf("Starting game...\n");
     
-    // Control the depth of the search
     play_game(player_color, 5);
     
     printf("\nThank you for playing!\n");
