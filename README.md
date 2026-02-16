@@ -89,10 +89,10 @@ make rebuild    # Clean and rebuild
 ./zugzwang
 ```
 
-The engine will:
-1. Initialize the board to the starting position
-2. Perform iterative deepening search
-3. Output moves in two-column algebraic notation
+Play interactively against the engine:
+1. Choose your color (White or Black)
+2. Enter moves in algebraic notation (e4, Nf3, etc.)
+3. View game in two-column format
 
 ### Move Format
 

@@ -71,3 +71,4 @@ tests/test_zobrist
 *.out
 *.synctex.gz
 implementation_order.md
+zugzwang

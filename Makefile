@@ -22,6 +22,7 @@ all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $^
+	@rm -f $(OBJECTS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -75,7 +76,8 @@ endif
 	@rm -f $(TESTDIR)/test_$(TESTFILE)
 
 clean:
-	rm -f $(OBJECTS) $(TARGET) $(shell find $(TESTDIR) -maxdepth 2 -type f ! -name '*.c')
+	rm -f $(OBJECTS) $(TARGET)
+	@find $(TESTDIR) -type f -name 'test_*' ! -name '*.c' -exec rm -f {} +
 
 rebuild: clean all
 

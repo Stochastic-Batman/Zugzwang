@@ -58,8 +58,8 @@ void play_game(Color player_color, int search_depth) {
     SearchInfo info;
     
     printf("\n");
-    printf("   White                Black\n");
-    printf("-----------------------------------\n");
+    printf("   White        Black\n");
+    printf("------------------------\n");
     
     int move_number = 1;
     
@@ -111,13 +111,17 @@ void play_game(Color player_color, int search_depth) {
             } else {
                 printf("    ");
             }
-            
+           
             move = read_user_move(&board);
-            
+
             if (move == 0) {
                 printf("\nGame terminated.\n");
                 break;
             }
+
+            char move_str[16];
+            move_to_algebraic(&board, move, move_str);
+            printf("%-6s", move_str);
         } else {
             // Engine's turn
             if (board.side_to_move == WHITE) {
@@ -134,7 +138,9 @@ void play_game(Color player_color, int search_depth) {
                 break;
             }
             
-            print_engine_move(&board, move, move_number);
+            char move_str[16];
+            move_to_algebraic(&board, move, move_str);
+            printf("%-6s", move_str);
         }
         
         make_move(&board, move);
