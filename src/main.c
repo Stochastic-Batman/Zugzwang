@@ -139,7 +139,7 @@ void play_game(Color player_color, int search_depth) {
         make_move(&board, move);
         
         if (board.side_to_move == WHITE) {
-            printf("\n");
+            if (player_color != BLACK) printf("\n");
             move_number++;
         } else {
             if (player_color == WHITE) {
